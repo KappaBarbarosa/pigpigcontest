@@ -1,0 +1,7 @@
+# YOLO detection data config (Domain Adaptation)
+path: /home/marl2025/pigpigcontest/yolo_dataset_full_grayscale
+train: images/train
+val: images/val
+names:
+  0: pig
+nc: 1

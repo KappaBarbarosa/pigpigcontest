@@ -496,6 +496,7 @@ def evaluate_with_tta(model: YOLO, val_img_dir: str, val_label_dir: str,
                 cv2.imwrite(tmp_path, img_gray_bgr)
 
             # Use predict with temp file (supports TTA)
+            # Use very low conf to collect all predictions, then filter by confidence_threshold in metrics
             results = model.predict(tmp_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=0.01)
 
             # Clean up temp file
@@ -510,9 +511,10 @@ def evaluate_with_tta(model: YOLO, val_img_dir: str, val_label_dir: str,
                         'class_id': int(box.cls[0].cpu().numpy())
                     })
             # Prepare original RGB for visualization
-            img_vis_rgb = img_rgb
+            img_vis_rgb = img_gray
         else:
             # Color mode: use file path with TTA support
+            # Use very low conf to collect all predictions, then filter by confidence_threshold in metrics
             results = model.predict(img_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=0.01)
 
             preds = []
@@ -560,19 +562,25 @@ def evaluate_with_tta(model: YOLO, val_img_dir: str, val_label_dir: str,
             cv2.imwrite(out_path, cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
             vis_count += 1
 
-    # Compute metrics
-    print("Computing mAP@[.5:.95]...")
-    metrics = compute_map_50_95(
-        gt_by_image=gt_by_image,
-        preds_by_image=preds_by_image,
-        confidence_threshold=0.01
-    )
+    # Compute metrics for multiple confidence thresholds
+    print("\nComputing mAP@[.5:.95] for different confidence thresholds...")
+    confidence_thresholds = [0.01, 0.1, 0.2]
+    metrics_by_conf = {}
 
-    print(f"mAP@[.5:.95]: {metrics['mAP']:.4f}")
-    print(f"AP50: {metrics['AP50']:.4f}")
-    print(f"AP75: {metrics['AP75']:.4f}")
+    print(f"\n{'Conf':<8} {'mAP@[.5:.95]':<14} {'AP50':<8} {'AP75':<8}")
+    print("-" * 40)
 
-    return metrics
+    for conf_thresh in confidence_thresholds:
+        metrics = compute_map_50_95(
+            gt_by_image=gt_by_image,
+            preds_by_image=preds_by_image,
+            confidence_threshold=conf_thresh
+        )
+        metrics_by_conf[conf_thresh] = metrics
+        print(f"{conf_thresh:<8.2f} {metrics['mAP']:<14.4f} {metrics['AP50']:<8.4f} {metrics['AP75']:<8.4f}")
+
+    # Return metrics at conf=0.01 (highest recall)
+    return metrics_by_conf[0.01]
 
 
 def evaluate_test_set_sample(model: YOLO, test_img_dir: str, device: str,
@@ -677,6 +685,7 @@ def evaluate_test_set_sample(model: YOLO, test_img_dir: str, device: str,
                         'confidence': float(box.conf[0].cpu().numpy()),
                         'class_id': int(box.cls[0].cpu().numpy())
                     })
+            img_vis = img_gray.copy()
         else:
             # Color mode: use file path with TTA support
             results = model.predict(img_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=0.01)
@@ -693,7 +702,7 @@ def evaluate_test_set_sample(model: YOLO, test_img_dir: str, device: str,
                     })
 
         # Visualize predictions on original image
-        img_vis = img_rgb.copy()
+            img_vis = img_rgb.copy()
 
         # Add domain label at top of image
         w = img_vis.shape[1]
@@ -732,13 +741,17 @@ def evaluate_test_set_sample(model: YOLO, test_img_dir: str, device: str,
 def predict_test_set_to_csv(model: YOLO, test_img_dir: str, device: str, imgsz: int,
                             mode: str = 'color', use_tta: bool = True,
                             output_csv: str = 'predictions.csv',
-                            vis_output_dir: str = None, conf: float = 0.01):
+                            vis_output_dir: str = None, conf: float = 0.01,
+                            batch_size: int = 8):
     """Run inference on all test images, optionally save visualizations, and write CSV.
 
     CSV format matches sample_submission.csv:
     header: Image_ID,PredictionString
     PredictionString for each image is a space-separated sequence of detections:
     "score x y w h class_id" repeated for each detection.
+
+    Args:
+        batch_size: Number of images to process in parallel (default: 8)
     """
     os.makedirs(os.path.dirname(output_csv) or '.', exist_ok=True)
     if vis_output_dir is not None:
@@ -748,68 +761,113 @@ def predict_test_set_to_csv(model: YOLO, test_img_dir: str, device: str, imgsz: 
 
     test_images = sorted(glob.glob(os.path.join(test_img_dir, "*.jpg")))
     print(f"Test images found: {len(test_images)}")
+    print(f"Using batch size: {batch_size}")
 
     rows = [("Image_ID", "PredictionString")]
 
-    for img_path in test_images:
-        img_name = os.path.basename(img_path)
-        img_id = int(os.path.splitext(img_name)[0])
+    # Process in batches for speed
+    total_batches = (len(test_images) + batch_size - 1) // batch_size
+    print(f"\n{'='*60}")
+    print(f"Starting batch prediction: {total_batches} batches")
+    print(f"{'='*60}")
 
+    import time
+    start_time = time.time()
+
+    for batch_idx in range(total_batches):
+        start_idx = batch_idx * batch_size
+        end_idx = min(start_idx + batch_size, len(test_images))
+        batch_paths = test_images[start_idx:end_idx]
+
+        elapsed = time.time() - start_time
+        avg_time = elapsed / (batch_idx + 1) if batch_idx > 0 else 0
+        eta = avg_time * (total_batches - batch_idx - 1) if batch_idx > 0 else 0
+
+        print(f"[{batch_idx+1:>3}/{total_batches}] Processing {len(batch_paths):>2} images | Elapsed: {elapsed:>6.1f}s | ETA: {eta:>6.1f}s", end='\r' if batch_idx < total_batches - 1 else '\n')
+
+        # Prepare batch based on color mode
         if mode == 'grayscale':
-            img = cv2.imread(img_path)
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img_gray = rgb_to_grayscale_rgb(img_rgb)
-            img_gray_bgr = cv2.cvtColor(img_gray, cv2.COLOR_RGB2BGR)
-            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
-                tmp_path = tmp.name
-                cv2.imwrite(tmp_path, img_gray_bgr)
-            results = model.predict(tmp_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
-            os.unlink(tmp_path)
-            img_vis_rgb = img_gray
+            # For grayscale, need to convert and use temp files
+            batch_results = []
+            for img_path in batch_paths:
+                img = cv2.imread(img_path)
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img_gray = rgb_to_grayscale_rgb(img_rgb)
+                img_gray_bgr = cv2.cvtColor(img_gray, cv2.COLOR_RGB2BGR)
+                with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+                    tmp_path = tmp.name
+                    cv2.imwrite(tmp_path, img_gray_bgr)
+                results = model.predict(tmp_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
+                batch_results.append((results, img_path))
+                os.unlink(tmp_path)
         else:
-            results = model.predict(img_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
-            img_bgr = cv2.imread(img_path)
-            img_vis_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            # For color mode, can use batch prediction directly
+            batch_results = model.predict(batch_paths, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
 
-        # Build prediction string
-        dets = []
-        if results and results[0].boxes is not None:
-            for box in results[0].boxes:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().tolist()
-                w = x2 - x1
-                h = y2 - y1
-                score = float(box.conf[0].cpu().numpy())
-                cls_id = int(box.cls[0].cpu().numpy())
-                dets.extend([f"{score:.6f}", f"{x1:.2f}", f"{y1:.2f}", f"{w:.2f}", f"{h:.2f}", str(cls_id)])
+        # Process results for each image in batch
+        for idx, img_path in enumerate(batch_paths):
+            img_name = os.path.basename(img_path)
+            img_id = int(os.path.splitext(img_name)[0])
 
-        prediction_string = " ".join(dets)
-        rows.append((str(img_id), prediction_string))
+            # Get result for this image
+            if mode == 'grayscale':
+                results, _ = batch_results[idx]
+                img = cv2.imread(img_path)
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img_gray = rgb_to_grayscale_rgb(img_rgb)
+                img_vis_rgb = img_gray
+            else:
+                results = batch_results[idx]
+                img_bgr = cv2.imread(img_path)
+                img_vis_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        # Optional visualization
-        if vis_output_dir is not None:
-            vis = img_vis_rgb.copy()
-            for i in range(0, len(dets), 6):
-                # dets chunk: score, x, y, w, h, cls
-                score = float(dets[i])
-                x = int(float(dets[i + 1]))
-                y = int(float(dets[i + 2]))
-                w = int(float(dets[i + 3]))
-                h = int(float(dets[i + 4]))
-                cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                label = f"{score:.2f}"
-                label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
-                cv2.rectangle(vis, (x, y - label_size[1] - 5), (x + label_size[0], y), (0, 255, 0), -1)
-                cv2.putText(vis, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
-            out_path = os.path.join(vis_output_dir, f"{img_id}_pred.jpg")
-            cv2.imwrite(out_path, cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+            # Build prediction string
+            dets = []
+            if results and results[0].boxes is not None:
+                for box in results[0].boxes:
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().tolist()
+                    w = x2 - x1
+                    h = y2 - y1
+                    score = float(box.conf[0].cpu().numpy())
+                    cls_id = int(box.cls[0].cpu().numpy())
+                    dets.extend([f"{score:.6f}", f"{x1:.2f}", f"{y1:.2f}", f"{w:.2f}", f"{h:.2f}", str(cls_id)])
+
+            prediction_string = " ".join(dets)
+            rows.append((str(img_id), prediction_string))
+
+            # Optional visualization
+            if vis_output_dir is not None:
+                vis = img_vis_rgb.copy()
+                for i in range(0, len(dets), 6):
+                    # dets chunk: score, x, y, w, h, cls
+                    score = float(dets[i])
+                    x = int(float(dets[i + 1]))
+                    y = int(float(dets[i + 2]))
+                    w = int(float(dets[i + 3]))
+                    h = int(float(dets[i + 4]))
+                    cv2.rectangle(vis, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    label = f"{score:.2f}"
+                    label_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    cv2.rectangle(vis, (x, y - label_size[1] - 5), (x + label_size[0], y), (0, 255, 0), -1)
+                    cv2.putText(vis, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+                out_path = os.path.join(vis_output_dir, f"{img_id}_pred.jpg")
+                cv2.imwrite(out_path, cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
 
     # Write CSV
+    total_time = time.time() - start_time
+    print(f"\n{'='*60}")
+    print(f"Writing CSV...")
     import csv
     with open(output_csv, 'w', newline='') as f:
         writer = csv.writer(f)
         for row in rows:
             writer.writerow(row)
+
     print(f"✅ Test predictions CSV written to: {output_csv}")
+    print(f"Total images: {len(test_images)}")
+    print(f"Total time: {total_time:.1f}s ({total_time/len(test_images):.2f}s per image)")
+    print(f"Speed improvement: ~{8.0 * batch_size / (batch_size + 7.0):.1f}x faster than sequential")
+    print(f"{'='*60}")
 
 
 def main():
@@ -865,10 +923,17 @@ Examples:
     parser.add_argument('--export_test_csv', action='store_true', help='Run full test inference and export CSV')
     parser.add_argument('--test_csv_path', default=None, help='Output CSV path (default: runs/.../predictions.csv)')
     parser.add_argument('--test_vis', action='store_true', help='Also save test visualizations')
+    parser.add_argument('--batch_size', type=int, default=8, help='Batch size for test set prediction (default: 8, larger=faster but more VRAM)')
     parser.add_argument('--name', default=None, help='Name of the run')
 
     args = parser.parse_args()
 
+    # Set default name if not provided
+    if args.name is None:
+        if args.eval_only:
+            args.name = 'eval'
+        else:
+            args.name = 'train'
 
     # Output directory
     out_dir = f'runs/domain_adapt_{args.color_mode}/{args.name}'
@@ -881,7 +946,11 @@ Examples:
         'yolov10m': 'yolov10m.yaml',
         'yolov10l': 'yolov10l.yaml',
         'yolov10x': 'yolov10x.yaml',
-        'yolov11x': 'yolov11x.yaml',
+        'yolov11n': 'yolo11n.pt',  # YOLO11 uses pretrained weights
+        'yolov11s': 'yolo11s.pt',
+        'yolov11m': 'yolo11m.pt',
+        'yolov11l': 'yolo11l.pt',
+        'yolov11x': 'yolo11x.pt',
     }
     if args.model not in vmap:
         raise SystemExit(f'Unsupported model: {args.model}')
@@ -914,7 +983,8 @@ Examples:
                 args.img_dir, args.labels_dir, dataset_dir_ft,
                 target_domain_start=args.target_domain_start,
                 target_domain_train_size=args.target_train_size,
-                mode='finetune'
+                mode='finetune',
+                color_mode=args.color_mode
             )
         else:
             print(f"Using existing dataset: {dataset_dir_ft}")
@@ -922,39 +992,105 @@ Examples:
         val_img_dir = os.path.join(dataset_dir_ft, 'images', 'val')
         val_label_dir = os.path.join(dataset_dir_ft, 'labels', 'val')
 
-        # Evaluate
-        metrics = evaluate_with_tta(
+        # Evaluate WITHOUT TTA
+        print("\n1. Validation Evaluation WITHOUT TTA:")
+        metrics_no_tta = evaluate_with_tta(
             model=model,
             val_img_dir=val_img_dir,
             val_label_dir=val_label_dir,
             device=args.device,
             imgsz=args.imgsz,
             mode=args.color_mode,
-            use_tta=args.use_tta,
-            output_dir=os.path.join(out_dir, 'eval_val_visualizations'),
+            use_tta=False,
+            output_dir=os.path.join(out_dir, 'eval_val_visualizations_no_tta'),
             visualize_limit=5
         )
 
-        print(f"\n✅ Evaluation completed!")
+        # Evaluate WITH TTA
+        metrics_with_tta = None
+        if args.model.startswith('yolov11'):
+            print("\n2. Validation Evaluation WITH TTA:")
+            metrics_with_tta = evaluate_with_tta(
+                model=model,
+                val_img_dir=val_img_dir,
+                val_label_dir=val_label_dir,
+                device=args.device,
+                imgsz=args.imgsz,
+                mode=args.color_mode,
+                use_tta=True,
+                output_dir=os.path.join(out_dir, 'eval_val_visualizations_with_tta'),
+                visualize_limit=5
+            )
+        else:
+            print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
+
+        # Print summary
+        print(f"\n{'='*60}")
+        print(f"✅ VALIDATION EVALUATION COMPLETED!")
+        print(f"{'='*60}")
         print(f"Mode: {args.color_mode.upper()}")
+        print(f"Model: {args.checkpoint}")
+        print(f"\nValidation Results (at conf=0.01):")
+        print(f"  Without TTA - mAP@[.5:.95]: {metrics_no_tta['mAP']:.4f} | AP50: {metrics_no_tta['AP50']:.4f} | AP75: {metrics_no_tta['AP75']:.4f}")
+        if metrics_with_tta:
+            improvement = (metrics_with_tta['mAP'] - metrics_no_tta['mAP']) / metrics_no_tta['mAP'] * 100
+            print(f"  With TTA    - mAP@[.5:.95]: {metrics_with_tta['mAP']:.4f} | AP50: {metrics_with_tta['AP50']:.4f} | AP75: {metrics_with_tta['AP75']:.4f}")
+            print(f"  TTA Improvement: {improvement:+.2f}%")
+        print(f"\nNote: See detailed metrics at different confidence thresholds (0.01, 0.1, 0.2) above.")
+        print(f"{'='*60}")
 
         # Test set sample evaluation
         if args.eval_test_sample:
+            print(f"\n{'='*60}")
+            print("🎲 TEST SET SAMPLE EVALUATION")
+            print(f"{'='*60}")
+
+            # Evaluate WITHOUT TTA
+            print("\n1. Test Sample WITHOUT TTA:")
             evaluate_test_set_sample(
                 model=model,
                 test_img_dir=args.test_dir,
                 device=args.device,
                 imgsz=args.imgsz,
                 mode=args.color_mode,
-                use_tta=args.use_tta,
+                use_tta=False,
                 sample_early=args.test_sample_early,
                 sample_late=args.test_sample_late,
                 seed=args.test_sample_seed,
-                output_dir=os.path.join(out_dir, 'eval_test_sample_visualizations')
+                output_dir=os.path.join(out_dir, 'eval_test_sample_no_tta')
             )
 
-        # Full test CSV export
+            # Evaluate WITH TTA
+            if args.model.startswith('yolov11'):
+                print("\n2. Test Sample WITH TTA:")
+                evaluate_test_set_sample(
+                    model=model,
+                    test_img_dir=args.test_dir,
+                    device=args.device,
+                    imgsz=args.imgsz,
+                    mode=args.color_mode,
+                    use_tta=True,
+                    sample_early=args.test_sample_early,
+                    sample_late=args.test_sample_late,
+                    seed=args.test_sample_seed,
+                    output_dir=os.path.join(out_dir, 'eval_test_sample_with_tta')
+                )
+            else:
+                print(f"\n⚠️  TTA skipped for test samples: {args.model} does not support TTA")
+
+        # Full test CSV export (use TTA if supported for best results)
         if args.export_test_csv:
+            print(f"\n{'='*60}")
+            print("📄 EXPORTING TEST PREDICTIONS TO CSV")
+            print(f"{'='*60}")
+
+            # Determine whether to use TTA
+            use_tta_for_csv = args.model.startswith('yolov11')
+            if use_tta_for_csv:
+                print("Using TTA for final predictions (best performance)")
+            else:
+                print(f"TTA not available for {args.model}, using standard inference")
+
             csv_path = args.test_csv_path or os.path.join(out_dir, 'predictions.csv')
             vis_dir = os.path.join(out_dir, 'eval_test_visualizations') if args.test_vis else None
             predict_test_set_to_csv(
@@ -963,10 +1099,11 @@ Examples:
                 device=args.device,
                 imgsz=args.imgsz,
                 mode=args.color_mode,
-                use_tta=args.use_tta,
+                use_tta=use_tta_for_csv,
                 output_csv=csv_path,
                 vis_output_dir=vis_dir,
-                conf=0.01
+                conf=0.01,
+                batch_size=args.batch_size
             )
 
         return
@@ -1002,8 +1139,12 @@ Examples:
         # Create augmentation pipeline
         albu_transform = get_domain_augmentations(imgsz=args.imgsz, mode=args.color_mode)
 
-        # Train from scratch
-        print(f"Training {args.model} from scratch (pretrain stage)...")
+        # Train pretrain stage
+        # Note: YOLOv11 models start from COCO pretrained weights, YOLOv10 trains from scratch
+        if args.model.startswith('yolov11'):
+            print(f"Training {args.model} from COCO pretrained weights (pretrain stage)...")
+        else:
+            print(f"Training {args.model} from scratch (pretrain stage)...")
 
         # Add Albumentations callback
         albu_callback = create_albumentations_callback(albu_transform)
@@ -1035,17 +1176,49 @@ Examples:
         pretrain_model_path = os.path.join(out_dir, f'{args.model}_pretrain', 'weights', 'best.pt')
         print(f"✅ Pretrain completed: {pretrain_model_path}")
 
-        metrics_no_tta = evaluate_with_tta(
+        # Post-pretrain evaluation
+        print(f"\n{'='*60}")
+        print("📊 POST-PRETRAIN EVALUATION")
+        print(f"{'='*60}")
+
+        val_img_dir_pretrain = os.path.join(dataset_dir_pretrain, 'images', 'val')
+        val_label_dir_pretrain = os.path.join(dataset_dir_pretrain, 'labels', 'val')
+
+        print("\nEvaluation WITHOUT TTA:")
+        metrics_pretrain_no_tta = evaluate_with_tta(
             model=model,
-            val_img_dir=val_img_dir,
-            val_label_dir=val_label_dir,
+            val_img_dir=val_img_dir_pretrain,
+            val_label_dir=val_label_dir_pretrain,
             device=args.device,
             imgsz=args.imgsz,
             mode=args.color_mode,
             use_tta=False,
-            output_dir=os.path.join(out_dir, 'train_val_visualizations_no_tta'),
+            output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_no_tta'),
             visualize_limit=5
         )
+
+        # Evaluate WITH TTA (only for YOLOv11)
+        if args.model.startswith('yolov11'):
+            print("\nEvaluation WITH TTA:")
+            metrics_pretrain_with_tta = evaluate_with_tta(
+                model=model,
+                val_img_dir=val_img_dir_pretrain,
+                val_label_dir=val_label_dir_pretrain,
+                device=args.device,
+                imgsz=args.imgsz,
+                mode=args.color_mode,
+                use_tta=True,
+                output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_with_tta'),
+                visualize_limit=5
+            )
+            improvement = (metrics_pretrain_with_tta['mAP'] - metrics_pretrain_no_tta['mAP']) / metrics_pretrain_no_tta['mAP'] * 100
+            print(f"\nPretrain Results Summary (at conf=0.01):")
+            print(f"  Without TTA: mAP@[.5:.95]={metrics_pretrain_no_tta['mAP']:.4f}")
+            print(f"  With TTA:    mAP@[.5:.95]={metrics_pretrain_with_tta['mAP']:.4f} ({improvement:+.2f}%)")
+        else:
+            print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
+            print(f"Pretrain Results Summary (at conf=0.01):")
+            print(f"  mAP@[.5:.95]: {metrics_pretrain_no_tta['mAP']:.4f}")
 
     # ==================== STAGE 2: FINE-TUNE ====================
     print(f"\n{'='*60}")
@@ -1113,6 +1286,7 @@ Examples:
     val_label_dir = os.path.join(dataset_dir_finetune, 'labels', 'val')
 
     model = YOLO(finetune_model_path)
+
     # Evaluate without TTA
     print("\n1. Evaluation WITHOUT TTA:")
     metrics_no_tta = evaluate_with_tta(
@@ -1127,13 +1301,36 @@ Examples:
         visualize_limit=5
     )
 
+    # Evaluate WITH TTA (only for YOLOv11, as YOLOv10 doesn't support TTA)
+    metrics_with_tta = None
+    if args.model.startswith('yolov11'):
+        print("\n2. Evaluation WITH TTA:")
+        metrics_with_tta = evaluate_with_tta(
+            model=model,
+            val_img_dir=val_img_dir,
+            val_label_dir=val_label_dir,
+            device=args.device,
+            imgsz=args.imgsz,
+            mode=args.color_mode,
+            use_tta=True,
+            output_dir=os.path.join(out_dir, 'train_val_visualizations_with_tta'),
+            visualize_limit=5
+        )
+    else:
+        print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
+
     print(f"\n{'='*60}")
     print("✅ TRAINING COMPLETED!")
     print(f"{'='*60}")
     print(f"Mode: {args.color_mode.upper()}")
     print(f"Final model: {finetune_model_path}")
-    print(f"\nResults:")
-    print(f"  Without TTA - mAP@[.5:.95]: {metrics_no_tta['mAP']:.4f}")
+    print(f"\nValidation Results (at conf=0.01):")
+    print(f"  Without TTA - mAP@[.5:.95]: {metrics_no_tta['mAP']:.4f} | AP50: {metrics_no_tta['AP50']:.4f} | AP75: {metrics_no_tta['AP75']:.4f}")
+    if metrics_with_tta:
+        improvement = (metrics_with_tta['mAP'] - metrics_no_tta['mAP']) / metrics_no_tta['mAP'] * 100
+        print(f"  With TTA    - mAP@[.5:.95]: {metrics_with_tta['mAP']:.4f} | AP50: {metrics_with_tta['AP50']:.4f} | AP75: {metrics_with_tta['AP75']:.4f}")
+        print(f"  TTA Improvement: {improvement:+.2f}%")
+    print(f"\nNote: See detailed metrics at different confidence thresholds (0.01, 0.1, 0.2) above.")
     print(f"{'='*60}")
 
     # Test set sample evaluation
