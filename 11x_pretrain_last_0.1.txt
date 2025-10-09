@@ -1,145 +1,0 @@
-
-============================================================
-🔍 EVALUATION MODE (GRAYSCALE)
-============================================================
-Using existing dataset: yolo_dataset_finetune_grayscale
-
-1. Validation Evaluation WITHOUT TTA:
-Found 10 validation images
-Loading ground truth from: yolo_dataset_finetune_grayscale/labels/val
-Loaded 10 images with ground truth
-Running inference without TTA...
-
-Computing mAP@[.5:.95] for different confidence thresholds...
-
-Conf     mAP@[.5:.95]   AP50     AP75    
-----------------------------------------
-0.01     0.6877         0.9556   0.8440  
-0.10     0.6799         0.9408   0.8325  
-0.20     0.6766         0.9322   0.8325  
-
-2. Validation Evaluation WITH TTA:
-Found 10 validation images
-Loading ground truth from: yolo_dataset_finetune_grayscale/labels/val
-Loaded 10 images with ground truth
-Running inference with TTA...
-
-Computing mAP@[.5:.95] for different confidence thresholds...
-
-Conf     mAP@[.5:.95]   AP50     AP75    
-----------------------------------------
-0.01     0.7012         0.9692   0.8377  
-0.10     0.6956         0.9590   0.8295  
-0.20     0.6922         0.9514   0.8227  
-
-============================================================
-✅ VALIDATION EVALUATION COMPLETED!
-============================================================
-Mode: GRAYSCALE
-Model: /home/marl2025/pigpigcontest/runs/domain_adapt_grayscale/None/yolov11x_pretrain/weights/last.pt
-
-Validation Results (at conf=0.01):
-  Without TTA - mAP@[.5:.95]: 0.6877 | AP50: 0.9556 | AP75: 0.8440
-  With TTA    - mAP@[.5:.95]: 0.7012 | AP50: 0.9692 | AP75: 0.8377
-  TTA Improvement: +1.96%
-
-Note: See detailed metrics at different confidence thresholds (0.01, 0.1, 0.2) above.
-============================================================
-
-============================================================
-🎲 TEST SET SAMPLE EVALUATION
-============================================================
-
-1. Test Sample WITHOUT TTA:
-
-============================================================
-🎲 TEST SET SAMPLE EVALUATION
-   Early (non-target): 10 images
-   Last 60 (target): 5 images
-============================================================
-Visualizations will be saved to: runs/domain_adapt_grayscale/last/eval_test_sample_no_tta
-Total test images: 1864
-
-Early images (non-target domain): 1804 images
-Last 60 images (target domain): 60 images
-
-Sampled from early: [66, 415, 427, 533, 701, 807, 938, 1198, 1367, 1724]
-Sampled from last 60: [1805, 1821, 1825, 1829, 1864]
-Total sampled: 15 images (seed=42)
-Running inference without TTA...
-  Image 1367 (NON-TARGET): 88 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_1367_pred.jpg
-  Image 66 (NON-TARGET): 52 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_66_pred.jpg
-  Image 701 (NON-TARGET): 66 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_701_pred.jpg
-  Image 938 (NON-TARGET): 55 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_938_pred.jpg
-  Image 1198 (NON-TARGET): 76 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_1198_pred.jpg
-  Image 807 (NON-TARGET): 84 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_807_pred.jpg
-  Image 427 (NON-TARGET): 66 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_427_pred.jpg
-  Image 1724 (NON-TARGET): 80 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_1724_pred.jpg
-  Image 415 (NON-TARGET): 67 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_415_pred.jpg
-  Image 533 (NON-TARGET): 67 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/nontarget_533_pred.jpg
-  Image 1829 (TARGET): 60 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/target_1829_pred.jpg
-  Image 1864 (TARGET): 56 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/target_1864_pred.jpg
-  Image 1805 (TARGET): 45 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/target_1805_pred.jpg
-  Image 1821 (TARGET): 51 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/target_1821_pred.jpg
-  Image 1825 (TARGET): 47 detections → runs/domain_adapt_grayscale/last/eval_test_sample_no_tta/target_1825_pred.jpg
-
-Total predictions: 960
-✅ Test set sample evaluation completed!
-📁 Visualizations saved to: runs/domain_adapt_grayscale/last/eval_test_sample_no_tta
-
-2. Test Sample WITH TTA:
-
-============================================================
-🎲 TEST SET SAMPLE EVALUATION
-   Early (non-target): 10 images
-   Last 60 (target): 5 images
-============================================================
-Visualizations will be saved to: runs/domain_adapt_grayscale/last/eval_test_sample_with_tta
-Total test images: 1864
-
-Early images (non-target domain): 1804 images
-Last 60 images (target domain): 60 images
-
-Sampled from early: [66, 415, 427, 533, 701, 807, 938, 1198, 1367, 1724]
-Sampled from last 60: [1805, 1821, 1825, 1829, 1864]
-Total sampled: 15 images (seed=42)
-Running inference with TTA...
-  Image 1367 (NON-TARGET): 160 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_1367_pred.jpg
-  Image 66 (NON-TARGET): 116 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_66_pred.jpg
-  Image 701 (NON-TARGET): 142 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_701_pred.jpg
-  Image 938 (NON-TARGET): 127 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_938_pred.jpg
-  Image 1198 (NON-TARGET): 139 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_1198_pred.jpg
-  Image 807 (NON-TARGET): 166 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_807_pred.jpg
-  Image 427 (NON-TARGET): 123 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_427_pred.jpg
-  Image 1724 (NON-TARGET): 145 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_1724_pred.jpg
-  Image 415 (NON-TARGET): 135 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_415_pred.jpg
-  Image 533 (NON-TARGET): 117 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/nontarget_533_pred.jpg
-  Image 1829 (TARGET): 81 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/target_1829_pred.jpg
-  Image 1864 (TARGET): 75 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/target_1864_pred.jpg
-  Image 1805 (TARGET): 58 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/target_1805_pred.jpg
-  Image 1821 (TARGET): 74 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/target_1821_pred.jpg
-  Image 1825 (TARGET): 67 detections → runs/domain_adapt_grayscale/last/eval_test_sample_with_tta/target_1825_pred.jpg
-
-Total predictions: 1725
-✅ Test set sample evaluation completed!
-📁 Visualizations saved to: runs/domain_adapt_grayscale/last/eval_test_sample_with_tta
-
-============================================================
-📄 EXPORTING TEST PREDICTIONS TO CSV
-============================================================
-Using TTA for final predictions (best performance)
-Test images found: 1864
-Using batch size: 8
-
-============================================================
-Starting batch prediction: 233 batches
-============================================================
-[  1/233] Processing  8 images | Elapsed:    0.0s | ETA:    0.0s[  2/233] Processing  8 images | Elapsed:    0.7s | ETA:   82.8s[  3/233] Processing  8 images | Elapsed:    1.4s | ETA:  109.9s[  4/233] Processing  8 images | Elapsed:    2.2s | ETA:  124.5s[  5/233] Processing  8 images | Elapsed:    2.9s | ETA:  131.3s[  6/233] Processing  8 images | Elapsed:    3.5s | ETA:  134.2s[  7/233] Processing  8 images | Elapsed:    4.2s | ETA:  136.5s[  8/233] Processing  8 images | Elapsed:    4.9s | ETA:  138.4s[  9/233] Processing  8 images | Elapsed:    5.6s | ETA:  140.2s[ 10/233] Processing  8 images | Elapsed:    6.3s | ETA:  141.1s[ 11/233] Processing  8 images | Elapsed:    7.0s | ETA:  141.5s[ 12/233] Processing  8 images | Elapsed:    7.7s | ETA:  142.2s[ 13/233] Processing  8 images | Elapsed:    8.4s | ETA:  142.2s[ 14/233] Processing  8 images | Elapsed:    9.1s | ETA:  142.8s[ 15/233] Processing  8 images | Elapsed:    9.8s | ETA:  142.9s[ 16/233] Processing  8 images | Elapsed:   10.5s | ETA:  142.5s[ 17/233] Processing  8 images | Elapsed:   11.2s | ETA:  142.1s[ 18/233] Processing  8 images | Elapsed:   11.9s | ETA:  141.7s[ 19/233] Processing  8 images | Elapsed:   12.5s | ETA:  140.9s[ 20/233] Processing  8 images | Elapsed:   13.1s | ETA:  140.0s[ 21/233] Processing  8 images | Elapsed:   13.8s | ETA:  139.4s[ 22/233] Processing  8 images | Elapsed:   14.5s | ETA:  138.8s[ 23/233] Processing  8 images | Elapsed:   15.2s | ETA:  138.5s[ 24/233] Processing  8 images | Elapsed:   15.9s | ETA:  138.2s[ 25/233] Processing  8 images | Elapsed:   16.6s | ETA:  138.2s[ 26/233] Processing  8 images | Elapsed:   17.3s | ETA:  138.1s[ 27/233] Processing  8 images | Elapsed:   18.1s | ETA:  138.0s[ 28/233] Processing  8 images | Elapsed:   18.8s | ETA:  137.9s[ 29/233] Processing  8 images | Elapsed:   19.6s | ETA:  137.6s[ 30/233] Processing  8 images | Elapsed:   20.3s | ETA:  137.5s[ 31/233] Processing  8 images | Elapsed:   21.0s | ETA:  137.1s[ 32/233] Processing  8 images | Elapsed:   21.7s | ETA:  136.6s[ 33/233] Processing  8 images | Elapsed:   22.5s | ETA:  136.1s[ 34/233] Processing  8 images | Elapsed:   23.2s | ETA:  135.6s[ 35/233] Processing  8 images | Elapsed:   23.8s | ETA:  134.9s[ 36/233] Processing  8 images | Elapsed:   24.5s | ETA:  134.2s[ 37/233] Processing  8 images | Elapsed:   25.2s | ETA:  133.6s[ 38/233] Processing  8 images | Elapsed:   25.9s | ETA:  132.9s[ 39/233] Processing  8 images | Elapsed:   26.6s | ETA:  132.2s[ 40/233] Processing  8 images | Elapsed:   27.3s | ETA:  131.5s[ 41/233] Processing  8 images | Elapsed:   28.0s | ETA:  130.9s[ 42/233] Processing  8 images | Elapsed:   28.7s | ETA:  130.4s[ 43/233] Processing  8 images | Elapsed:   29.4s | ETA:  129.8s[ 44/233] Processing  8 images | Elapsed:   30.1s | ETA:  129.2s[ 45/233] Processing  8 images | Elapsed:   30.8s | ETA:  128.6s[ 46/233] Processing  8 images | Elapsed:   31.5s | ETA:  127.9s[ 47/233] Processing  8 images | Elapsed:   32.1s | ETA:  127.2s[ 48/233] Processing  8 images | Elapsed:   32.8s | ETA:  126.4s[ 49/233] Processing  8 images | Elapsed:   33.5s | ETA:  125.9s[ 50/233] Processing  8 images | Elapsed:   34.2s | ETA:  125.2s[ 51/233] Processing  8 images | Elapsed:   34.9s | ETA:  124.6s[ 52/233] Processing  8 images | Elapsed:   35.6s | ETA:  123.9s[ 53/233] Processing  8 images | Elapsed:   36.3s | ETA:  123.3s[ 54/233] Processing  8 images | Elapsed:   37.0s | ETA:  122.6s[ 55/233] Processing  8 images | Elapsed:   37.7s | ETA:  121.9s[ 56/233] Processing  8 images | Elapsed:   38.3s | ETA:  121.2s[ 57/233] Processing  8 images | Elapsed:   39.0s | ETA:  120.5s[ 58/233] Processing  8 images | Elapsed:   39.7s | ETA:  119.9s[ 59/233] Processing  8 images | Elapsed:   40.5s | ETA:  119.4s[ 60/233] Processing  8 images | Elapsed:   41.2s | ETA:  118.8s[ 61/233] Processing  8 images | Elapsed:   41.9s | ETA:  118.3s[ 62/233] Processing  8 images | Elapsed:   42.6s | ETA:  117.6s[ 63/233] Processing  8 images | Elapsed:   43.3s | ETA:  117.0s[ 64/233] Processing  8 images | Elapsed:   44.0s | ETA:  116.2s[ 65/233] Processing  8 images | Elapsed:   44.7s | ETA:  115.5s[ 66/233] Processing  8 images | Elapsed:   45.3s | ETA:  114.7s[ 67/233] Processing  8 images | Elapsed:   46.0s | ETA:  114.0s[ 68/233] Processing  8 images | Elapsed:   46.7s | ETA:  113.3s[ 69/233] Processing  8 images | Elapsed:   47.3s | ETA:  112.5s[ 70/233] Processing  8 images | Elapsed:   48.0s | ETA:  111.8s[ 71/233] Processing  8 images | Elapsed:   48.7s | ETA:  111.1s[ 72/233] Processing  8 images | Elapsed:   49.3s | ETA:  110.3s[ 73/233] Processing  8 images | Elapsed:   50.0s | ETA:  109.5s[ 74/233] Processing  8 images | Elapsed:   50.6s | ETA:  108.8s[ 75/233] Processing  8 images | Elapsed:   51.3s | ETA:  108.1s[ 76/233] Processing  8 images | Elapsed:   52.0s | ETA:  107.4s[ 77/233] Processing  8 images | Elapsed:   52.7s | ETA:  106.7s[ 78/233] Processing  8 images | Elapsed:   53.3s | ETA:  106.0s[ 79/233] Processing  8 images | Elapsed:   54.0s | ETA:  105.3s[ 80/233] Processing  8 images | Elapsed:   54.7s | ETA:  104.5s[ 81/233] Processing  8 images | Elapsed:   55.3s | ETA:  103.8s[ 82/233] Processing  8 images | Elapsed:   56.0s | ETA:  103.1s[ 83/233] Processing  8 images | Elapsed:   56.7s | ETA:  102.4s[ 84/233] Processing  8 images | Elapsed:   57.4s | ETA:  101.8s[ 85/233] Processing  8 images | Elapsed:   58.1s | ETA:  101.1s[ 86/233] Processing  8 images | Elapsed:   58.7s | ETA:  100.4s[ 87/233] Processing  8 images | Elapsed:   59.4s | ETA:   99.7s[ 88/233] Processing  8 images | Elapsed:   60.1s | ETA:   99.0s[ 89/233] Processing  8 images | Elapsed:   60.8s | ETA:   98.3s[ 90/233] Processing  8 images | Elapsed:   61.6s | ETA:   97.8s[ 91/233] Processing  8 images | Elapsed:   62.3s | ETA:   97.3s[ 92/233] Processing  8 images | Elapsed:   63.1s | ETA:   96.6s[ 93/233] Processing  8 images | Elapsed:   63.8s | ETA:   96.1s[ 94/233] Processing  8 images | Elapsed:   64.6s | ETA:   95.5s[ 95/233] Processing  8 images | Elapsed:   65.3s | ETA:   94.9s[ 96/233] Processing  8 images | Elapsed:   66.0s | ETA:   94.2s[ 97/233] Processing  8 images | Elapsed:   66.7s | ETA:   93.5s[ 98/233] Processing  8 images | Elapsed:   67.4s | ETA:   92.8s[ 99/233] Processing  8 images | Elapsed:   68.1s | ETA:   92.2s[100/233] Processing  8 images | Elapsed:   68.8s | ETA:   91.6s[101/233] Processing  8 images | Elapsed:   69.5s | ETA:   90.9s[102/233] Processing  8 images | Elapsed:   70.3s | ETA:   90.3s[103/233] Processing  8 images | Elapsed:   71.1s | ETA:   89.8s[104/233] Processing  8 images | Elapsed:   71.9s | ETA:   89.1s[105/233] Processing  8 images | Elapsed:   72.6s | ETA:   88.5s[106/233] Processing  8 images | Elapsed:   73.3s | ETA:   87.8s[107/233] Processing  8 images | Elapsed:   74.0s | ETA:   87.2s[108/233] Processing  8 images | Elapsed:   74.7s | ETA:   86.5s[109/233] Processing  8 images | Elapsed:   75.4s | ETA:   85.7s[110/233] Processing  8 images | Elapsed:   76.1s | ETA:   85.0s[111/233] Processing  8 images | Elapsed:   76.8s | ETA:   84.4s[112/233] Processing  8 images | Elapsed:   77.5s | ETA:   83.7s[113/233] Processing  8 images | Elapsed:   78.2s | ETA:   83.1s[114/233] Processing  8 images | Elapsed:   79.0s | ETA:   82.5s[115/233] Processing  8 images | Elapsed:   79.7s | ETA:   81.8s[116/233] Processing  8 images | Elapsed:   80.4s | ETA:   81.1s[117/233] Processing  8 images | Elapsed:   81.1s | ETA:   80.4s[118/233] Processing  8 images | Elapsed:   81.9s | ETA:   79.8s[119/233] Processing  8 images | Elapsed:   82.6s | ETA:   79.1s[120/233] Processing  8 images | Elapsed:   83.3s | ETA:   78.4s[121/233] Processing  8 images | Elapsed:   84.0s | ETA:   77.7s[122/233] Processing  8 images | Elapsed:   84.7s | ETA:   77.0s[123/233] Processing  8 images | Elapsed:   85.3s | ETA:   76.3s[124/233] Processing  8 images | Elapsed:   86.0s | ETA:   75.6s[125/233] Processing  8 images | Elapsed:   86.7s | ETA:   74.9s[126/233] Processing  8 images | Elapsed:   87.3s | ETA:   74.2s[127/233] Processing  8 images | Elapsed:   88.0s | ETA:   73.4s[128/233] Processing  8 images | Elapsed:   88.6s | ETA:   72.7s[129/233] Processing  8 images | Elapsed:   89.2s | ETA:   71.9s[130/233] Processing  8 images | Elapsed:   89.9s | ETA:   71.2s[131/233] Processing  8 images | Elapsed:   90.6s | ETA:   70.6s[132/233] Processing  8 images | Elapsed:   91.3s | ETA:   69.8s[133/233] Processing  8 images | Elapsed:   92.0s | ETA:   69.1s[134/233] Processing  8 images | Elapsed:   92.7s | ETA:   68.5s[135/233] Processing  8 images | Elapsed:   93.4s | ETA:   67.8s[136/233] Processing  8 images | Elapsed:   94.1s | ETA:   67.1s[137/233] Processing  8 images | Elapsed:   94.8s | ETA:   66.4s[138/233] Processing  8 images | Elapsed:   95.4s | ETA:   65.7s[139/233] Processing  8 images | Elapsed:   96.1s | ETA:   65.0s[140/233] Processing  8 images | Elapsed:   96.8s | ETA:   64.3s[141/233] Processing  8 images | Elapsed:   97.5s | ETA:   63.6s[142/233] Processing  8 images | Elapsed:   98.3s | ETA:   63.0s[143/233] Processing  8 images | Elapsed:   99.1s | ETA:   62.3s[144/233] Processing  8 images | Elapsed:   99.8s | ETA:   61.7s[145/233] Processing  8 images | Elapsed:  100.5s | ETA:   61.0s[146/233] Processing  8 images | Elapsed:  101.2s | ETA:   60.3s[147/233] Processing  8 images | Elapsed:  101.9s | ETA:   59.6s[148/233] Processing  8 images | Elapsed:  102.7s | ETA:   59.0s[149/233] Processing  8 images | Elapsed:  103.4s | ETA:   58.3s[150/233] Processing  8 images | Elapsed:  104.2s | ETA:   57.6s[151/233] Processing  8 images | Elapsed:  104.9s | ETA:   57.0s[152/233] Processing  8 images | Elapsed:  105.6s | ETA:   56.3s[153/233] Processing  8 images | Elapsed:  106.3s | ETA:   55.6s[154/233] Processing  8 images | Elapsed:  107.0s | ETA:   54.9s[155/233] Processing  8 images | Elapsed:  107.7s | ETA:   54.2s[156/233] Processing  8 images | Elapsed:  108.4s | ETA:   53.5s[157/233] Processing  8 images | Elapsed:  109.2s | ETA:   52.8s[158/233] Processing  8 images | Elapsed:  109.9s | ETA:   52.2s[159/233] Processing  8 images | Elapsed:  110.7s | ETA:   51.5s[160/233] Processing  8 images | Elapsed:  111.5s | ETA:   50.9s[161/233] Processing  8 images | Elapsed:  112.2s | ETA:   50.2s[162/233] Processing  8 images | Elapsed:  112.9s | ETA:   49.5s[163/233] Processing  8 images | Elapsed:  113.6s | ETA:   48.8s[164/233] Processing  8 images | Elapsed:  114.3s | ETA:   48.1s[165/233] Processing  8 images | Elapsed:  115.1s | ETA:   47.4s[166/233] Processing  8 images | Elapsed:  115.8s | ETA:   46.7s[167/233] Processing  8 images | Elapsed:  116.5s | ETA:   46.1s[168/233] Processing  8 images | Elapsed:  117.3s | ETA:   45.4s[169/233] Processing  8 images | Elapsed:  118.0s | ETA:   44.7s[170/233] Processing  8 images | Elapsed:  118.7s | ETA:   44.0s[171/233] Processing  8 images | Elapsed:  119.5s | ETA:   43.3s[172/233] Processing  8 images | Elapsed:  120.2s | ETA:   42.6s[173/233] Processing  8 images | Elapsed:  120.9s | ETA:   41.9s[174/233] Processing  8 images | Elapsed:  121.6s | ETA:   41.2s[175/233] Processing  8 images | Elapsed:  122.4s | ETA:   40.6s[176/233] Processing  8 images | Elapsed:  123.2s | ETA:   39.9s[177/233] Processing  8 images | Elapsed:  124.0s | ETA:   39.2s[178/233] Processing  8 images | Elapsed:  124.7s | ETA:   38.5s[179/233] Processing  8 images | Elapsed:  125.5s | ETA:   37.9s[180/233] Processing  8 images | Elapsed:  126.2s | ETA:   37.2s[181/233] Processing  8 images | Elapsed:  127.0s | ETA:   36.5s[182/233] Processing  8 images | Elapsed:  127.7s | ETA:   35.8s[183/233] Processing  8 images | Elapsed:  128.5s | ETA:   35.1s[184/233] Processing  8 images | Elapsed:  129.2s | ETA:   34.4s[185/233] Processing  8 images | Elapsed:  129.9s | ETA:   33.7s[186/233] Processing  8 images | Elapsed:  130.7s | ETA:   33.0s[187/233] Processing  8 images | Elapsed:  131.5s | ETA:   32.3s[188/233] Processing  8 images | Elapsed:  132.2s | ETA:   31.7s[189/233] Processing  8 images | Elapsed:  133.0s | ETA:   31.0s[190/233] Processing  8 images | Elapsed:  133.7s | ETA:   30.3s[191/233] Processing  8 images | Elapsed:  134.4s | ETA:   29.6s[192/233] Processing  8 images | Elapsed:  135.2s | ETA:   28.9s[193/233] Processing  8 images | Elapsed:  135.9s | ETA:   28.2s[194/233] Processing  8 images | Elapsed:  136.7s | ETA:   27.5s[195/233] Processing  8 images | Elapsed:  137.4s | ETA:   26.8s[196/233] Processing  8 images | Elapsed:  138.2s | ETA:   26.1s[197/233] Processing  8 images | Elapsed:  139.0s | ETA:   25.4s[198/233] Processing  8 images | Elapsed:  139.7s | ETA:   24.7s[199/233] Processing  8 images | Elapsed:  140.5s | ETA:   24.0s[200/233] Processing  8 images | Elapsed:  141.3s | ETA:   23.3s[201/233] Processing  8 images | Elapsed:  142.1s | ETA:   22.6s[202/233] Processing  8 images | Elapsed:  142.9s | ETA:   21.9s[203/233] Processing  8 images | Elapsed:  143.7s | ETA:   21.2s[204/233] Processing  8 images | Elapsed:  144.5s | ETA:   20.5s[205/233] Processing  8 images | Elapsed:  145.3s | ETA:   19.8s[206/233] Processing  8 images | Elapsed:  146.1s | ETA:   19.1s[207/233] Processing  8 images | Elapsed:  146.9s | ETA:   18.5s[208/233] Processing  8 images | Elapsed:  147.7s | ETA:   17.8s[209/233] Processing  8 images | Elapsed:  148.5s | ETA:   17.1s[210/233] Processing  8 images | Elapsed:  149.3s | ETA:   16.4s[211/233] Processing  8 images | Elapsed:  150.1s | ETA:   15.6s[212/233] Processing  8 images | Elapsed:  150.8s | ETA:   14.9s[213/233] Processing  8 images | Elapsed:  151.5s | ETA:   14.2s[214/233] Processing  8 images | Elapsed:  152.3s | ETA:   13.5s[215/233] Processing  8 images | Elapsed:  153.0s | ETA:   12.8s[216/233] Processing  8 images | Elapsed:  153.7s | ETA:   12.1s[217/233] Processing  8 images | Elapsed:  154.5s | ETA:   11.4s[218/233] Processing  8 images | Elapsed:  155.2s | ETA:   10.7s[219/233] Processing  8 images | Elapsed:  155.9s | ETA:   10.0s[220/233] Processing  8 images | Elapsed:  156.7s | ETA:    9.3s[221/233] Processing  8 images | Elapsed:  157.4s | ETA:    8.5s[222/233] Processing  8 images | Elapsed:  158.2s | ETA:    7.8s[223/233] Processing  8 images | Elapsed:  159.0s | ETA:    7.1s[224/233] Processing  8 images | Elapsed:  159.8s | ETA:    6.4s[225/233] Processing  8 images | Elapsed:  160.5s | ETA:    5.7s[226/233] Processing  8 images | Elapsed:  161.3s | ETA:    5.0s[227/233] Processing  8 images | Elapsed:  161.9s | ETA:    4.3s[228/233] Processing  8 images | Elapsed:  162.5s | ETA:    3.6s[229/233] Processing  8 images | Elapsed:  163.0s | ETA:    2.8s[230/233] Processing  8 images | Elapsed:  163.6s | ETA:    2.1s[231/233] Processing  8 images | Elapsed:  164.1s | ETA:    1.4s[232/233] Processing  8 images | Elapsed:  164.6s | ETA:    0.7s[233/233] Processing  8 images | Elapsed:  165.2s | ETA:    0.0s
-
-============================================================
-Writing CSV...
-✅ Test predictions CSV written to: last_grayscale.csv
-Total images: 1864
-Total time: 165.7s (0.09s per image)
-Speed improvement: ~4.3x faster than sequential
-============================================================

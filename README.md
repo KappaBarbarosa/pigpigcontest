@@ -1,186 +1,254 @@
-# TAICA CVPDL 2025 Homework 1 - Object Detection Project
+# Pig Detection Contest - Domain Adaptation Project
 
-This project implements object detection models for computer vision tasks using PyTorch and YOLOv10.
+This project implements a domain adaptation approach for pig detection using YOLO models, specifically designed for a computer vision contest. The system uses a two-stage training strategy to adapt models from a general domain to a target domain (last 60 images).
 
-## Project Structure
+## 🎯 Project Overview
+
+This is a computer vision project focused on pig detection using domain adaptation techniques. The project implements a sophisticated training pipeline that:
+
+- Uses YOLO models (YOLOv10/YOLOv11) for object detection
+- Implements domain adaptation with two-stage training
+- Supports both color and grayscale image processing
+- Includes test-time augmentation (TTA) for improved performance
+- Provides comprehensive evaluation metrics
+
+## 🏗️ Project Structure
 
 ```
-taica-cvpdl-2025-hw-1/
-├── src/                    # Source code
-│   ├── __init__.py
-│   ├── data_loader.py     # Data loading utilities
-│   ├── model.py           # Model definitions
-│   ├── train.py           # Training utilities
-│   └── inference.py       # Inference utilities
-├── train/                 # Training data
-│   ├── img/              # Training images
-│   └── gt.txt            # Ground truth annotations
-├── test/                 # Test data
-│   └── img/              # Test images
-├── yolov10/              # YOLOv10 implementation
-├── main.py               # Main execution script
-├── pyproject.toml        # Project configuration
-└── README.md             # This file
+pigpigcontest/
+├── train/                          # Training data
+│   ├── img/                       # Training images
+│   ├── labels/                     # YOLO format labels
+│   └── gt.txt                     # Ground truth annotations
+├── test/                          # Test data
+│   └── img/                       # Test images
+├── data_splits/                   # Dataset configuration files
+├── yolo_dataset_*/               # Generated datasets for different modes
+├── runs/                         # Training outputs and model checkpoints
+├── evaluation.py                 # Evaluation metrics implementation
+├── train_domain_adaptation.py    # Main training script
+├── eval.sh                       # Evaluation script
+├── finetune.sh                   # Fine-tuning script
+├── requirements.txt              # Python dependencies
+└── pyproject.toml               # Project configuration
 ```
 
-## Installation
+## 🚀 Key Features
 
-This project uses `uv` for dependency management. To set up the environment:
+### 1. Domain Adaptation Strategy
+- **Two-stage training**: Pretrain on all data → Fine-tune on target domain
+- **Target domain**: Last 60 images (similar to test domain)
+- **Training split**: 50 train + 10 validation from last 60 images
 
-1. Install uv (if not already installed):
+### 2. Multi-Modal Support
+- **Color mode**: Full RGB image processing
+- **Grayscale mode**: RGB format with R=G=B channels
+- **Automatic conversion**: Built-in grayscale transformation
+
+### 3. Advanced Augmentation
+- **Pretrain stage**: Comprehensive augmentations (perspective, lighting, blur, compression)
+- **Fine-tune stage**: Minimal augmentations to preserve target domain characteristics
+- **Test-time augmentation**: Multiple inference passes for improved accuracy
+
+### 4. Model Support
+- **YOLOv10**: YOLOv10n, YOLOv10s, YOLOv10m, YOLOv10l, YOLOv10x
+- **YOLOv11**: YOLOv11n, YOLOv11s, YOLOv11m, YOLOv11l, YOLOv11x
+- **TTA support**: Available for YOLOv11 models
+
+## 📋 Requirements
+
+### System Requirements
+- Python >= 3.11
+- CUDA-capable GPU (recommended)
+- 8GB+ VRAM for training
+
+### Dependencies
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+pip install -r requirements.txt
 ```
 
-2. Install dependencies:
+Key dependencies:
+- `torch>=2.8.0`
+- `torchvision>=0.23.0`
+- `ultralytics>=8.3.205`
+- `opencv-python>=4.12.0.88`
+- `albumentations`
+- `numpy`, `pandas`, `matplotlib`
+
+## 🎮 Usage
+
+### 1. Training (Two-Stage Domain Adaptation)
+
+#### Color Mode Training
 ```bash
-uv sync
+python train_domain_adaptation.py \
+    --color_mode color \
+    --model yolov11x \
+    --device cuda:0 \
+    --pretrain_epochs 100 \
+    --finetune_epochs 5 \
+    --batch 4
 ```
 
-3. Activate the virtual environment:
+#### Grayscale Mode Training
 ```bash
-source .venv/bin/activate
+python train_domain_adaptation.py \
+    --color_mode grayscale \
+    --model yolov11x \
+    --device cuda:0 \
+    --pretrain_epochs 100 \
+    --finetune_epochs 5 \
+    --batch 4
 ```
 
-## Usage
+### 2. Evaluation Only
 
-### Training
-
-Train a custom model:
+#### Load Trained Model and Evaluate
 ```bash
-python main.py --mode train --model_type custom --epochs 20 --batch_size 16
+python train_domain_adaptation.py \
+    --eval_only \
+    --checkpoint runs/domain_adapt_color/yolov11x_finetune/weights/best.pt \
+    --color_mode color \
+    --use_tta
 ```
 
-### Inference
-
-Run inference on test images:
+#### Test Set Sample Evaluation
 ```bash
-python main.py --mode inference --model_type yolov10 --confidence_threshold 0.5
+python train_domain_adaptation.py \
+    --eval_only \
+    --checkpoint runs/domain_adapt_color/yolov11x_finetune/weights/best.pt \
+    --color_mode color \
+    --eval_test_sample \
+    --test_sample_early 3 \
+    --test_sample_late 2
 ```
 
-### Available Options
-
-- `--mode`: Choose between 'train' or 'inference'
-- `--model_type`: Choose between 'yolov10' or 'custom'
-- `--epochs`: Number of training epochs (default: 10)
-- `--batch_size`: Batch size for training (default: 32)
-- `--learning_rate`: Learning rate (default: 1e-4)
-- `--device`: Device to use ('cpu', 'cuda', or 'auto')
-- `--confidence_threshold`: Confidence threshold for inference (default: 0.5)
-- `--output_file`: Output file for predictions (default: 'predictions.csv')
-
-## Data Format
-
-### Training Data
-- Images: JPG format in `train/img/`
-- Annotations: Text file `train/gt.txt` with format:
-  ```
-  image_id,x,y,width,height
-  ```
-  Where:
-  - `image_id`: Image identifier
-  - `x, y`: Top-left corner coordinates of bounding box
-  - `width, height`: Width and height of bounding box
-
-### Test Data
-- Images: JPG format in `test/img/`
-
-### Output Format
-Predictions are saved in CSV format with columns:
-- `Image_ID`: Image identifier
-- `PredictionString`: Space-separated predictions in format:
-  ```
-  confidence x1 y1 x2 y2 class_id
-  ```
-  Where:
-  - `confidence`: Detection confidence score (0-1)
-  - `x1, y1, x2, y2`: Bounding box coordinates (top-left and bottom-right)
-  - `class_id`: Object class identifier
-
-## Evaluation Metrics
-
-The project uses standard object detection evaluation metrics:
-
-### Key Metrics
-- **IoU (Intersection over Union)**: Measures overlap between predicted and ground truth bounding boxes
-- **Precision**: Ratio of correct predictions to total predictions
-- **Recall**: Ratio of correct predictions to total ground truth objects
-- **F1 Score**: Harmonic mean of precision and recall
-- **mAP (Mean Average Precision)**: Average precision across all images and confidence thresholds
-
-### Evaluation Script
+#### Export Test Predictions to CSV
 ```bash
-# Evaluate predictions against ground truth
-uv run python evaluate.py --pred_file predictions.csv --gt_file train/gt.txt
-
-# With custom thresholds
-uv run python evaluate.py --pred_file predictions.csv --iou_threshold 0.5 --confidence_threshold 0.3
+python train_domain_adaptation.py \
+    --eval_only \
+    --checkpoint runs/domain_adapt_color/yolov11x_finetune/weights/best.pt \
+    --color_mode color \
+    --export_test_csv \
+    --test_csv_path predictions.csv \
+    --test_vis
 ```
 
-## Dependencies
-
-- PyTorch 2.8.0
-- OpenCV 4.12.0
-- Matplotlib 3.10.6
-- Pandas 2.3.3
-- Scikit-learn 1.7.2
-- Jupyter 1.1.1
-- And more (see pyproject.toml)
-
-## YOLOv10 Integration
-
-This project includes YOLOv10 implementation in the `yolov10/` directory. You can use it directly for training and inference:
-
-```python
-from ultralytics import YOLO
-
-# Load model
-model = YOLO('yolo10n.pt')
-
-# Train
-model.train(data='your_dataset.yaml', epochs=100)
-
-# Inference
-results = model('path/to/image.jpg')
-```
-
-## Examples
-
-### Basic Training
+### 3. Quick Fine-tuning (Skip Pretraining)
 ```bash
-# Train custom model for 20 epochs
-python main.py --mode train --model_type custom --epochs 20 --batch_size 16 --learning_rate 0.001
+python train_domain_adaptation.py \
+    --skip_pretrain \
+    --checkpoint pretrained_model.pt \
+    --color_mode color \
+    --finetune_epochs 10
 ```
 
-### Inference with Different Confidence Thresholds
+## 📊 Evaluation Metrics
+
+The project implements comprehensive evaluation using COCO-style metrics:
+
+- **mAP@[.5:.95]**: Mean Average Precision across IoU thresholds 0.5-0.95
+- **AP50**: Average Precision at IoU=0.5
+- **AP75**: Average Precision at IoU=0.75
+- **Confidence thresholds**: Evaluation at 0.01, 0.1, 0.2
+
+### Test-Time Augmentation (TTA)
+- **YOLOv11 models**: Full TTA support with multiple inference passes
+- **YOLOv10 models**: Standard inference only
+- **Performance boost**: Typically 2-5% improvement in mAP
+
+## 🔧 Configuration
+
+### Training Parameters
+- **Image size**: 640x640 (configurable)
+- **Batch size**: 4 (adjustable based on GPU memory)
+- **Learning rates**: 
+  - Pretrain: 0.01 → 0.01
+  - Fine-tune: 0.0001 → 0.00001
+- **Optimizer**: AdamW
+- **Augmentation**: Albumentations pipeline
+
+### Dataset Splits
+- **Pretrain**: All 1270 images (90% train, 10% val)
+- **Fine-tune**: Last 60 images (50 train, 10 val)
+- **Validation**: First 10% + last 10 images (never used for training)
+
+## 📁 Output Structure
+
+```
+runs/domain_adapt_{color_mode}/{name}/
+├── {model}_pretrain/              # Pretraining results
+│   ├── weights/
+│   │   ├── best.pt                # Best model
+│   │   └── last.pt                # Last epoch
+│   ├── results.png                 # Training curves
+│   └── confusion_matrix.png       # Confusion matrix
+├── {model}_finetune/              # Fine-tuning results
+│   ├── weights/
+│   │   ├── best.pt                # Final model
+│   │   └── last.pt                # Last epoch
+│   └── results.png                # Training curves
+├── eval_val_visualizations_*/      # Validation visualizations
+├── eval_test_sample_*/            # Test sample visualizations
+└── predictions.csv                # Test predictions (if exported)
+```
+
+## 🎨 Visualization Features
+
+- **Ground truth vs predictions**: Side-by-side comparison
+- **Domain labeling**: Target vs non-target domain identification
+- **Confidence scores**: Visual confidence indicators
+- **TTA indicators**: Shows whether TTA was used
+- **Batch processing**: Efficient visualization generation
+
+## 🚀 Performance Tips
+
+### For Better Results
+1. **Use YOLOv11 models** for TTA support
+2. **Enable TTA** for final predictions
+3. **Adjust batch size** based on GPU memory
+4. **Monitor validation metrics** during training
+5. **Use appropriate color mode** for your data
+
+### For Faster Training
+1. **Reduce image size** (e.g., 512x512)
+2. **Use smaller models** (yolov11n, yolov11s)
+3. **Increase batch size** if GPU allows
+4. **Skip pretraining** if starting from good checkpoint
+
+## 🔍 Troubleshooting
+
+### Common Issues
+1. **CUDA out of memory**: Reduce batch size or image size
+2. **TTA not working**: Ensure using YOLOv11 models
+3. **Low mAP**: Check data quality and augmentation settings
+4. **Overfitting**: Reduce learning rate or increase regularization
+
+### Debug Mode
 ```bash
-# High confidence predictions
-python main.py --mode inference --confidence_threshold 0.8 --output_file high_conf_predictions.csv
-
-# Low confidence predictions
-python main.py --mode inference --confidence_threshold 0.3 --output_file low_conf_predictions.csv
+python train_domain_adaptation.py --eval_only --checkpoint model.pt --color_mode color --eval_test_sample --test_vis
 ```
 
-### Using GPU
-```bash
-# Force GPU usage
-python main.py --mode train --device cuda --model_type custom
-```
+## 📈 Results Interpretation
 
-## Development
+- **mAP@[.5:.95]**: Primary metric for model comparison
+- **AP50**: Good for understanding detection quality
+- **TTA improvement**: Shows potential performance gain
+- **Domain performance**: Compare target vs non-target domain results
 
-To add new features or modify the code:
+## 🤝 Contributing
 
-1. Make changes in the `src/` directory
-2. Test your changes:
-```bash
-python main.py --mode inference --model_type custom
-```
-3. Run linting:
-```bash
-uv run ruff check src/
-```
+This project is designed for a specific contest context. For modifications:
 
-## License
+1. Adjust dataset paths in scripts
+2. Modify augmentation parameters
+3. Change model configurations
+4. Update evaluation metrics as needed
 
-This project is part of TAICA CVPDL 2025 coursework.
+## 📄 License
+
+This project is part of a computer vision contest submission. Please refer to contest guidelines for usage terms.
+
+---
+
+**Note**: This project implements a sophisticated domain adaptation pipeline specifically designed for pig detection in contest scenarios. The two-stage training approach and comprehensive evaluation tools make it suitable for similar object detection tasks requiring domain adaptation.

@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""
-Domain Adaptation Training for Pig Detection
-Train on last 60 images (similar to test domain): 50 train + 10 val
-
-Strategy:
-1. Two-stage training: Pretrain on all data → Fine-tune on target domain (last 60)
-2. Color vs Grayscale modes
-3. Gentle augmentations (no heavy distortions)
-4. Test-time augmentation (TTA) for inference
-"""
-
 import os
 import shutil
 import argparse
@@ -159,10 +148,11 @@ def create_domain_adaptation_dataset(
     img_dir: str,
     labels_dir: str,
     output_base: str,
-    target_domain_start: int = 1207,  # 最后60张的起始索引（从1开始）
-    target_domain_train_size: int = 50,  # 最后60张中的前50张用于训练
+    target_domain_start: int = 1207,
+    target_domain_train_size: int = 50,
     mode: str = 'pretrain',  # 'pretrain' or 'finetune'
-    color_mode: str = 'color'  # 'color' or 'grayscale'
+    color_mode: str = 'color',  # 'color' or 'grayscale'
+    train_all: bool = False  # Use all images for training (no validation split)
 ):
     """
     Create dataset for domain adaptation.
@@ -171,40 +161,61 @@ def create_domain_adaptation_dataset(
         mode: 'pretrain' - use all 1270 images (train/val split: 90%/10%)
               'finetune' - use only last 60 images (50 train / 10 val)
         color_mode: 'color' or 'grayscale' - if grayscale, convert images during copy
+        train_all: if True, use all images for training (no validation split)
     """
     images = list_images_sorted(img_dir)
     n = len(images)
 
     if mode == 'pretrain':
-        # Pretrain: validation = first 10% + last 10 images (never used for training)
-        first_10pct_size = int(n * 0.1)
-        last_10_indices = set(range(n - 10, n))  # Last 10 images (indices)
-        first_10pct_indices = set(range(first_10pct_size))
+        if train_all:
+            # Train all: use all images for training, no validation split
+            train_files = images
+            val_files = []
+            print(f'PRETRAIN mode (train_all=True): Total {n} images')
+            print(f'  Training: {len(train_files)} images (ALL images)')
+            print(f'  Validation: {len(val_files)} images (NO validation split)')
+        else:
+            # Pretrain: validation = first 10% + last 10 images (never used for training)
+            first_10pct_size = int(n * 0.1)
+            last_10_indices = set(range(n - 10, n))  # Last 10 images (indices)
+            first_10pct_indices = set(range(first_10pct_size))
 
-        val_indices = first_10pct_indices | last_10_indices
-        train_files = [f for i, f in enumerate(images) if i not in val_indices]
-        val_files = [f for i, f in enumerate(images) if i in val_indices]
+            val_indices = first_10pct_indices | last_10_indices
+            train_files = [f for i, f in enumerate(images) if i not in val_indices]
+            val_files = [f for i, f in enumerate(images) if i in val_indices]
 
-        print(f'PRETRAIN mode: Total {n} images')
-        print(f'  Validation: {len(val_files)} images (first 10% + last 10)')
-        print(f'    - First 10%: indices 0-{first_10pct_size-1}')
-        print(f'    - Last 10: indices {n-10}-{n-1}')
-        print(f'  Training: {len(train_files)} images')
+            print(f'PRETRAIN mode: Total {n} images')
+            print(f'  Validation: {len(val_files)} images (first 10% + last 10)')
+            print(f'    - First 10%: indices 0-{first_10pct_size-1}')
+            print(f'    - Last 10: indices {n-10}-{n-1}')
+            print(f'  Training: {len(train_files)} images')
 
     elif mode == 'finetune':
-        # Fine-tune: use only last 60 images
-        # Training: images at indices [target_domain_start : target_domain_start+50]
-        # Validation: LAST 10 images (same as pretrain validation, never used for training)
-        start_idx = target_domain_start - 1  # Convert to 0-indexed
-        target_images = images[start_idx:]  # Last 60 images
+        if train_all:
+            # Train all: use all last 60 images for training, no validation split
+            start_idx = target_domain_start - 1  # Convert to 0-indexed
+            target_images = images[start_idx:]  # Last 60 images
+            
+            train_files = target_images  # All 60 images for training
+            val_files = []  # No validation split
+            
+            print(f'FINETUNE mode (train_all=True): Using last 60 images (domain-similar)')
+            print(f'  Training: {len(train_files)} images (ALL last 60 images, indices {target_domain_start}-{target_domain_start + 59})')
+            print(f'  Validation: {len(val_files)} images (NO validation split)')
+        else:
+            # Fine-tune: use only last 60 images
+            # Training: images at indices [target_domain_start : target_domain_start+50]
+            # Validation: LAST 10 images (same as pretrain validation, never used for training)
+            start_idx = target_domain_start - 1  # Convert to 0-indexed
+            target_images = images[start_idx:]  # Last 60 images
 
-        train_files = target_images[:target_domain_train_size]  # First 50 of last 60
-        val_files = target_images[target_domain_train_size:]    # Last 10 images (global last 10)
+            train_files = target_images[:target_domain_train_size]  # First 50 of last 60
+            val_files = target_images[target_domain_train_size:]    # Last 10 images (global last 10)
 
-        print(f'FINETUNE mode: Using last 60 images (domain-similar)')
-        print(f'  Training: {len(train_files)} images (indices {target_domain_start}-{target_domain_start + target_domain_train_size - 1})')
-        print(f'  Validation: {len(val_files)} images (LAST 10, indices {target_domain_start + target_domain_train_size}-{target_domain_start + 59})')
-        print(f'  Note: Last 10 images are NEVER used for training in any stage')
+            print(f'FINETUNE mode: Using last 60 images (domain-similar)')
+            print(f'  Training: {len(train_files)} images (indices {target_domain_start}-{target_domain_start + target_domain_train_size - 1})')
+            print(f'  Validation: {len(val_files)} images (LAST 10, indices {target_domain_start + target_domain_train_size}-{target_domain_start + 59})')
+            print(f'  Note: Last 10 images are NEVER used for training in any stage')
 
     else:
         raise ValueError(f"Invalid mode: {mode}")
@@ -884,6 +895,9 @@ Examples:
   # Skip pretrain (only fine-tune on last 60)
   python train_domain_adaptation.py --skip_pretrain --color_mode color --device cuda
 
+  # Train with all images (no validation split)
+  python train_domain_adaptation.py --train_all --color_mode color --device cuda
+
   # Evaluation only with TTA
   python train_domain_adaptation.py --eval_only --checkpoint runs/domain_adapt_color/yolov10x_finetune/weights/best.pt --use_tta
         """,
@@ -906,6 +920,8 @@ Examples:
                         help='Training mode: color or grayscale (RGB format)')
     parser.add_argument('--skip_pretrain', action='store_true',
                         help='Skip pretraining, only fine-tune on last 60 images')
+    parser.add_argument('--train_all', action='store_true',
+                        help='Use all train and val images for training (no validation split)')
     parser.add_argument('--target_domain_start', type=int, default=1207,
                         help='Starting index of target domain images (1-indexed)')
     parser.add_argument('--target_train_size', type=int, default=50,
@@ -984,7 +1000,8 @@ Examples:
                 target_domain_start=args.target_domain_start,
                 target_domain_train_size=args.target_train_size,
                 mode='finetune',
-                color_mode=args.color_mode
+                color_mode=args.color_mode,
+                train_all=args.train_all
             )
         else:
             print(f"Using existing dataset: {dataset_dir_ft}")
@@ -1113,7 +1130,11 @@ Examples:
     print(f"🚀 DOMAIN ADAPTATION TRAINING ({args.color_mode.upper()})")
     print(f"{'='*60}")
     print(f"Strategy: {'Pretrain → Fine-tune' if not args.skip_pretrain else 'Fine-tune only'}")
-    print(f"Target domain: Last 60 images ({args.target_train_size} train / {60 - args.target_train_size} val)")
+    if args.train_all:
+        print(f"Mode: TRAIN ALL (no validation split)")
+        print(f"Target domain: All last 60 images for training")
+    else:
+        print(f"Target domain: Last 60 images ({args.target_train_size} train / {60 - args.target_train_size} val)")
     print(f"{'='*60}\n")
 
     pretrain_model_path = None
@@ -1129,7 +1150,8 @@ Examples:
         if not os.path.exists(dataset_dir_pretrain):
             create_domain_adaptation_dataset(
                 args.img_dir, args.labels_dir, dataset_dir_pretrain, mode='pretrain',
-                color_mode=args.color_mode
+                color_mode=args.color_mode,
+                train_all=args.train_all
             )
 
         data_yaml_pretrain = os.path.join('data_splits', f'data_pretrain_{args.color_mode}.yaml')
@@ -1167,7 +1189,7 @@ Examples:
             project=out_dir,
             name=f'{args.model}_pretrain',
             exist_ok=True,
-            val=True,
+            val=not args.train_all,  # Disable validation when train_all=True
             plots=True,
             save=True,
             save_period=10,
@@ -1176,49 +1198,52 @@ Examples:
         pretrain_model_path = os.path.join(out_dir, f'{args.model}_pretrain', 'weights', 'best.pt')
         print(f"✅ Pretrain completed: {pretrain_model_path}")
 
-        # Post-pretrain evaluation
-        print(f"\n{'='*60}")
-        print("📊 POST-PRETRAIN EVALUATION")
-        print(f"{'='*60}")
+        # Post-pretrain evaluation (skip if train_all=True)
+        if not args.train_all:
+            print(f"\n{'='*60}")
+            print("📊 POST-PRETRAIN EVALUATION")
+            print(f"{'='*60}")
 
-        val_img_dir_pretrain = os.path.join(dataset_dir_pretrain, 'images', 'val')
-        val_label_dir_pretrain = os.path.join(dataset_dir_pretrain, 'labels', 'val')
+            val_img_dir_pretrain = os.path.join(dataset_dir_pretrain, 'images', 'val')
+            val_label_dir_pretrain = os.path.join(dataset_dir_pretrain, 'labels', 'val')
 
-        print("\nEvaluation WITHOUT TTA:")
-        metrics_pretrain_no_tta = evaluate_with_tta(
-            model=model,
-            val_img_dir=val_img_dir_pretrain,
-            val_label_dir=val_label_dir_pretrain,
-            device=args.device,
-            imgsz=args.imgsz,
-            mode=args.color_mode,
-            use_tta=False,
-            output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_no_tta'),
-            visualize_limit=5
-        )
-
-        # Evaluate WITH TTA (only for YOLOv11)
-        if args.model.startswith('yolov11'):
-            print("\nEvaluation WITH TTA:")
-            metrics_pretrain_with_tta = evaluate_with_tta(
+            print("\nEvaluation WITHOUT TTA:")
+            metrics_pretrain_no_tta = evaluate_with_tta(
                 model=model,
                 val_img_dir=val_img_dir_pretrain,
                 val_label_dir=val_label_dir_pretrain,
                 device=args.device,
                 imgsz=args.imgsz,
                 mode=args.color_mode,
-                use_tta=True,
-                output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_with_tta'),
+                use_tta=False,
+                output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_no_tta'),
                 visualize_limit=5
             )
-            improvement = (metrics_pretrain_with_tta['mAP'] - metrics_pretrain_no_tta['mAP']) / metrics_pretrain_no_tta['mAP'] * 100
-            print(f"\nPretrain Results Summary (at conf=0.01):")
-            print(f"  Without TTA: mAP@[.5:.95]={metrics_pretrain_no_tta['mAP']:.4f}")
-            print(f"  With TTA:    mAP@[.5:.95]={metrics_pretrain_with_tta['mAP']:.4f} ({improvement:+.2f}%)")
+
+            # Evaluate WITH TTA (only for YOLOv11)
+            if args.model.startswith('yolov11'):
+                print("\nEvaluation WITH TTA:")
+                metrics_pretrain_with_tta = evaluate_with_tta(
+                    model=model,
+                    val_img_dir=val_img_dir_pretrain,
+                    val_label_dir=val_label_dir_pretrain,
+                    device=args.device,
+                    imgsz=args.imgsz,
+                    mode=args.color_mode,
+                    use_tta=True,
+                    output_dir=os.path.join(out_dir, 'pretrain_val_visualizations_with_tta'),
+                    visualize_limit=5
+                )
+                improvement = (metrics_pretrain_with_tta['mAP'] - metrics_pretrain_no_tta['mAP']) / metrics_pretrain_no_tta['mAP'] * 100
+                print(f"\nPretrain Results Summary (at conf=0.01):")
+                print(f"  Without TTA: mAP@[.5:.95]={metrics_pretrain_no_tta['mAP']:.4f}")
+                print(f"  With TTA:    mAP@[.5:.95]={metrics_pretrain_with_tta['mAP']:.4f} ({improvement:+.2f}%)")
+            else:
+                print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
+                print(f"Pretrain Results Summary (at conf=0.01):")
+                print(f"  mAP@[.5:.95]: {metrics_pretrain_no_tta['mAP']:.4f}")
         else:
-            print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
-            print(f"Pretrain Results Summary (at conf=0.01):")
-            print(f"  mAP@[.5:.95]: {metrics_pretrain_no_tta['mAP']:.4f}")
+            print(f"\n⚠️  Post-pretrain evaluation skipped: train_all=True (no validation set)")
 
     # ==================== STAGE 2: FINE-TUNE ====================
     print(f"\n{'='*60}")
@@ -1233,7 +1258,8 @@ Examples:
             target_domain_start=args.target_domain_start,
             target_domain_train_size=args.target_train_size,
             mode='finetune',
-            color_mode=args.color_mode
+            color_mode=args.color_mode,
+            train_all=args.train_all
         )
 
     data_yaml_finetune = os.path.join('data_splits', f'data_finetune_{args.color_mode}.yaml')
@@ -1267,7 +1293,7 @@ Examples:
         project=out_dir,
         name=f'{args.model}_finetune',
         exist_ok=True,
-        val=True,
+        val=not args.train_all,  # Disable validation when train_all=True
         plots=True,
         save=True,
         save_period=5,
@@ -1278,60 +1304,69 @@ Examples:
     print(f"✅ Fine-tune completed: {finetune_model_path}")
 
     # ==================== POST-TRAINING EVALUATION ====================
-    print(f"\n{'='*60}")
-    print("📊 POST-TRAINING EVALUATION")
-    print(f"{'='*60}")
+    if not args.train_all:
+        print(f"\n{'='*60}")
+        print("📊 POST-TRAINING EVALUATION")
+        print(f"{'='*60}")
 
-    val_img_dir = os.path.join(dataset_dir_finetune, 'images', 'val')
-    val_label_dir = os.path.join(dataset_dir_finetune, 'labels', 'val')
+        val_img_dir = os.path.join(dataset_dir_finetune, 'images', 'val')
+        val_label_dir = os.path.join(dataset_dir_finetune, 'labels', 'val')
 
-    model = YOLO(finetune_model_path)
+        model = YOLO(finetune_model_path)
 
-    # Evaluate without TTA
-    print("\n1. Evaluation WITHOUT TTA:")
-    metrics_no_tta = evaluate_with_tta(
-        model=model,
-        val_img_dir=val_img_dir,
-        val_label_dir=val_label_dir,
-        device=args.device,
-        imgsz=args.imgsz,
-        mode=args.color_mode,
-        use_tta=False,
-        output_dir=os.path.join(out_dir, 'train_val_visualizations_no_tta'),
-        visualize_limit=5
-    )
-
-    # Evaluate WITH TTA (only for YOLOv11, as YOLOv10 doesn't support TTA)
-    metrics_with_tta = None
-    if args.model.startswith('yolov11'):
-        print("\n2. Evaluation WITH TTA:")
-        metrics_with_tta = evaluate_with_tta(
+        # Evaluate without TTA
+        print("\n1. Evaluation WITHOUT TTA:")
+        metrics_no_tta = evaluate_with_tta(
             model=model,
             val_img_dir=val_img_dir,
             val_label_dir=val_label_dir,
             device=args.device,
             imgsz=args.imgsz,
             mode=args.color_mode,
-            use_tta=True,
-            output_dir=os.path.join(out_dir, 'train_val_visualizations_with_tta'),
+            use_tta=False,
+            output_dir=os.path.join(out_dir, 'train_val_visualizations_no_tta'),
             visualize_limit=5
         )
-    else:
-        print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
 
-    print(f"\n{'='*60}")
-    print("✅ TRAINING COMPLETED!")
-    print(f"{'='*60}")
-    print(f"Mode: {args.color_mode.upper()}")
-    print(f"Final model: {finetune_model_path}")
-    print(f"\nValidation Results (at conf=0.01):")
-    print(f"  Without TTA - mAP@[.5:.95]: {metrics_no_tta['mAP']:.4f} | AP50: {metrics_no_tta['AP50']:.4f} | AP75: {metrics_no_tta['AP75']:.4f}")
-    if metrics_with_tta:
-        improvement = (metrics_with_tta['mAP'] - metrics_no_tta['mAP']) / metrics_no_tta['mAP'] * 100
-        print(f"  With TTA    - mAP@[.5:.95]: {metrics_with_tta['mAP']:.4f} | AP50: {metrics_with_tta['AP50']:.4f} | AP75: {metrics_with_tta['AP75']:.4f}")
-        print(f"  TTA Improvement: {improvement:+.2f}%")
-    print(f"\nNote: See detailed metrics at different confidence thresholds (0.01, 0.1, 0.2) above.")
-    print(f"{'='*60}")
+        # Evaluate WITH TTA (only for YOLOv11, as YOLOv10 doesn't support TTA)
+        metrics_with_tta = None
+        if args.model.startswith('yolov11'):
+            print("\n2. Evaluation WITH TTA:")
+            metrics_with_tta = evaluate_with_tta(
+                model=model,
+                val_img_dir=val_img_dir,
+                val_label_dir=val_label_dir,
+                device=args.device,
+                imgsz=args.imgsz,
+                mode=args.color_mode,
+                use_tta=True,
+                output_dir=os.path.join(out_dir, 'train_val_visualizations_with_tta'),
+                visualize_limit=5
+            )
+        else:
+            print(f"\n⚠️  TTA skipped: {args.model} does not support TTA")
+
+        print(f"\n{'='*60}")
+        print("✅ TRAINING COMPLETED!")
+        print(f"{'='*60}")
+        print(f"Mode: {args.color_mode.upper()}")
+        print(f"Final model: {finetune_model_path}")
+        print(f"\nValidation Results (at conf=0.01):")
+        print(f"  Without TTA - mAP@[.5:.95]: {metrics_no_tta['mAP']:.4f} | AP50: {metrics_no_tta['AP50']:.4f} | AP75: {metrics_no_tta['AP75']:.4f}")
+        if metrics_with_tta:
+            improvement = (metrics_with_tta['mAP'] - metrics_no_tta['mAP']) / metrics_no_tta['mAP'] * 100
+            print(f"  With TTA    - mAP@[.5:.95]: {metrics_with_tta['mAP']:.4f} | AP50: {metrics_with_tta['AP50']:.4f} | AP75: {metrics_with_tta['AP75']:.4f}")
+            print(f"  TTA Improvement: {improvement:+.2f}%")
+        print(f"\nNote: See detailed metrics at different confidence thresholds (0.01, 0.1, 0.2) above.")
+        print(f"{'='*60}")
+    else:
+        print(f"\n{'='*60}")
+        print("✅ TRAINING COMPLETED!")
+        print(f"{'='*60}")
+        print(f"Mode: {args.color_mode.upper()} (TRAIN ALL)")
+        print(f"Final model: {finetune_model_path}")
+        print(f"\n⚠️  No validation evaluation: train_all=True (no validation set)")
+        print(f"{'='*60}")
 
     # Test set sample evaluation
     if args.eval_test_sample:
