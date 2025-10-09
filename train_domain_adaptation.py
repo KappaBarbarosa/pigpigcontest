@@ -279,12 +279,12 @@ def create_domain_adaptation_dataset(
     return output_base
 
 
-def write_data_yaml(dataset_path: str, out_yaml: str):
+def write_data_yaml(dataset_path: str, out_yaml: str, train_all: bool = False):
     """Create YOLO data.yaml config."""
     content = f"""# YOLO detection data config (Domain Adaptation)
 path: {os.path.abspath(dataset_path)}
 train: images/train
-val: images/val
+val: images/{'val' if not train_all else 'train'}
 names:
   0: pig
 nc: 1
@@ -508,7 +508,7 @@ def evaluate_with_tta(model: YOLO, val_img_dir: str, val_label_dir: str,
 
             # Use predict with temp file (supports TTA)
             # Use very low conf to collect all predictions, then filter by confidence_threshold in metrics
-            results = model.predict(tmp_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=0.01)
+            results = model.predict(tmp_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=0.05)
 
             # Clean up temp file
             os.unlink(tmp_path)
@@ -575,7 +575,7 @@ def evaluate_with_tta(model: YOLO, val_img_dir: str, val_label_dir: str,
 
     # Compute metrics for multiple confidence thresholds
     print("\nComputing mAP@[.5:.95] for different confidence thresholds...")
-    confidence_thresholds = [0.01, 0.1, 0.2]
+    confidence_thresholds = [0.01, 0.05, 0.1, 0.2]
     metrics_by_conf = {}
 
     print(f"\n{'Conf':<8} {'mAP@[.5:.95]':<14} {'AP50':<8} {'AP75':<8}")
@@ -812,8 +812,11 @@ def predict_test_set_to_csv(model: YOLO, test_img_dir: str, device: str, imgsz: 
                 batch_results.append((results, img_path))
                 os.unlink(tmp_path)
         else:
-            # For color mode, can use batch prediction directly
-            batch_results = model.predict(batch_paths, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
+            # For color mode, use single prediction to match grayscale behavior
+            batch_results = []
+            for img_path in batch_paths:
+                results = model.predict(img_path, imgsz=imgsz, augment=use_tta, verbose=False, conf=conf)
+                batch_results.append((results, img_path))
 
         # Process results for each image in batch
         for idx, img_path in enumerate(batch_paths):
@@ -828,7 +831,7 @@ def predict_test_set_to_csv(model: YOLO, test_img_dir: str, device: str, imgsz: 
                 img_gray = rgb_to_grayscale_rgb(img_rgb)
                 img_vis_rgb = img_gray
             else:
-                results = batch_results[idx]
+                results, _ = batch_results[idx]
                 img_bgr = cv2.imread(img_path)
                 img_vis_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
@@ -1120,6 +1123,7 @@ Examples:
                 output_csv=csv_path,
                 vis_output_dir=vis_dir,
                 conf=0.01,
+                # conf=0.1,
                 batch_size=args.batch_size
             )
 
@@ -1156,7 +1160,7 @@ Examples:
 
         data_yaml_pretrain = os.path.join('data_splits', f'data_pretrain_{args.color_mode}.yaml')
         os.makedirs('data_splits', exist_ok=True)
-        write_data_yaml(dataset_dir_pretrain, data_yaml_pretrain)
+        write_data_yaml(dataset_dir_pretrain, data_yaml_pretrain, train_all=args.train_all)
 
         # Create augmentation pipeline
         albu_transform = get_domain_augmentations(imgsz=args.imgsz, mode=args.color_mode)
