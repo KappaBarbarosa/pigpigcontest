@@ -48,7 +48,7 @@ bash train_color.sh
 - `--batch_size`: Batch size for training
 - `--device`: GPU device ID (0, 1, etc.)
 - `--model`: Model architecture (yolov11x)
-- `--train_all`: Train all images
+- `--train_all`: Use all train and val images for training (no validation split)
 
 ## Evaluation and Submission
 
@@ -118,14 +118,14 @@ This will create `submission.csv` - the final submission file.
 
 ```
 pigpigcontest/
-├── train_domain_adaptation.py    # Main training and prediction script
-├── ensemble_predictions.py       # Ensemble prediction script
-├── requirements.txt              # Python dependencies
-├── readme.md                     # This file
-├── runs/                        # Training outputs
-│   ├── domain_adapt_grayscale/
-│   └── domain_adapt_color/
-├── yolo_dataset_pretrain_grayscale/  # Grayscale dataset
-├── yolo_dataset_pretrain_color/      # Color dataset
-└── test_images/                  # Test images
+├── src/
+│   ├── train_domain_adaptation.py    # Main training and prediction script
+│   ├── ensemble_predictions.py      # Ensemble prediction script
+│   ├── evaluation.py                 # Evaluation utilities
+│   ├── train_color.sh               # Color mode training script
+│   ├── train_grayscale.sh          # Grayscale mode training script
+│   ├── eval_color.sh               # Color mode evaluating script
+│   └── eval_grayscale.sh          # Grayscale mode evaluating script
+├── requirements.txt                 # Python dependencies
+├── readme.md                        # This file
 ```
